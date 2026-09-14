@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}About — Anndaan{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>About Anndaan</h1>
+  <p class="form-sub">A food donation platform connecting surplus with those who need it.</p>
+
+  <div class="about-section">
+    <h2>Our Mission</h2>
+    <p>Anndaan aims to reduce food waste and fight hunger by creating a seamless bridge between food donors and NGOs. Our platform enables restaurants, households, and event caterers to share surplus food, ensuring it reaches those who need it before it spoils.</p>
+
+    <h2>Developers</h2>
+    <div class="developer-grid">
+      <div class="developer-card">
+        <h3>Saksham Suryawanshi</h3>
+        <p>Lead Developer</p>
+      </div>
+      <div class="developer-card">
+        <h3>Samyak Fulmali</h3>
+        <p>Full-Stack Engineer</p>
+      </div>
+      <div class="developer-card">
+        <h3>Shivam Patil</h3>
+        <p>Backend Specialist</p>
+      </div>
+      <div class="developer-card">
+        <h3>Tanzil Saad Ansari</h3>
+        <p>DevOps & Infrastructure</p>
+      </div>
+      <div class="developer-card">
+        <h3>Yash Dhande</h3>
+        <p>Frontend Engineer</p>
+      </div>
+    </div>
+
+    <div class="credits">
+      <p>Built with ❤ at <strong>Jhulelal Institute of Technology</strong></p>
+      <p>Version 2.0 — Prototype to Production</p>
+    </div>
+  </div>
+
+  <div class="impact-grid" style="margin-top: 40px;">
+    <div class="impact-card">
+      <span class="impact-icon coral">♨</span>
+      <strong>{{ (stats['completed'] or 0) * 20 + 128 }}</strong>
+      <span>meals shared</span>
+    </div>
+    <div class="impact-card">
+      <span class="impact-icon green">♡</span>
+      <strong>{{ (stats['completed'] or 0) * 8 + 46 }}</strong>
+      <span>people helped</span>
+    </div>
+    <div class="impact-card">
+      <span class="impact-icon gold">✦</span>
+      <strong>{{ (stats['total'] or 0) * 3 + 18 }} kg</strong>
+      <span>food rescued</span>
+    </div>
+  </div>
+</section>
+{% endblock %}

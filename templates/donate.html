@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Donate food — Anndaan{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>Post a food donation</h1>
+  <p class="form-sub">Posting as <strong>{{ current_user['name'] }}</strong> ({{ current_user['phone'] }}). Give NGOs enough detail to decide fast — what it is, how much, and how long it'll stay good.</p>
+  <div class="map-container">
+    <div id="map" style="height:300px;margin-bottom:10px;"></div>
+    <input type="hidden" name="latitude" id="latitude" value="">
+    <input type="hidden" name="longitude" id="longitude" value="">
+  </div>
+
+  <form method="post" class="form">
+    <label>
+      Food item(s)
+      <input type="text" name="food_item" placeholder="e.g. Rice, dal, mixed vegetable curry" value="{{ form.get('food_item','') }}" required>
+    </label>
+
+    <div class="form-row">
+      <label>
+        Type
+        <select name="food_type" required>
+          <option value="">Select</option>
+          <option value="veg" {% if form.get('food_type')=='veg' %}selected{% endif %}>Vegetarian</option>
+          <option value="non-veg" {% if form.get('food_type')=='non-veg' %}selected{% endif %}>Non-vegetarian</option>
+        </select>
+      </label>
+
+      <label>
+        Quantity
+        <input type="text" name="quantity" placeholder="e.g. serves 20 people" value="{{ form.get('quantity','') }}" required>
+      </label>
+    </div>
+
+    <label>
+      Pickup address
+      <input type="text" name="pickup_address" placeholder="Full address or landmark" value="{{ form.get('pickup_address','') }}" required>
+    </label>
+
+    <label>
+      Pick up by
+      <input type="datetime-local" name="expiry_time" value="{{ form.get('expiry_time', default_expiry) }}" required>
+    </label>
+
+    <label>
+      Notes (optional)
+      <textarea name="notes" rows="3" placeholder="Packed in containers, ready from 7pm, ring the bell etc.">{{ form.get('notes','') }}</textarea>
+    </label>
+
+    <button type="submit" class="btn btn-primary">Post donation</button>
+  </form>
+</section>
+{% endblock %}
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const map = L.map('map').setView([20, 75], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    
+    map.on('click', function(e) {
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+      document.getElementById('latitude').value = lat;
+      document.getElementById('longitude').value = lng;
+      L.marker([lat, lng]).addTo(map);
+    });
+  });
+</script>

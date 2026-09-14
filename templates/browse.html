@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Find food — Anndaan{% endblock %}
+{% block content %}
+<section class="browse-page">
+  <div class="browse-head">
+    <h1>Available right now</h1>
+    <div class="filters">
+      <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse') }}">All</a>
+      <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg') }}">Veg</a>
+      <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg') }}">Non-veg</a>
+    </div>
+  </div>
+
+  {% if donations %}
+  <div class="card-grid">
+    {% for d in donations %}
+    <a class="card" href="{{ url_for('donation_detail', donation_id=d['id']) }}">
+      <span class="tag tag-{{ d['food_type'] }}">{{ d['food_type'] }}</span>
+      <h3>{{ d['food_item'] }}</h3>
+      <p class="card-meta">{{ d['quantity'] }} &middot; pickup by {{ d['expiry_time'] }}</p>
+      <p class="card-loc">{{ d['pickup_address'] }}</p>
+      <p class="card-donor">from {{ d['donor_name'] }}</p>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <p>Nothing posted right now. Check back soon
+      {% if current_user and current_user['role'] == 'donor' %}
+        , or be the first to <a href="{{ url_for('donate') }}">post a donation</a>.
+      {% else %}.{% endif %}
+    </p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

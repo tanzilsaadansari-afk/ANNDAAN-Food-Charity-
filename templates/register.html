@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Sign up — Anndaan{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>Create an account</h1>
+  <p class="form-sub">Sign up as a donor to post surplus food, or as an NGO to claim it.</p>
+
+  <form method="post" class="form">
+    <label>
+      Account type
+      <select name="role" required>
+        <option value="">Select</option>
+        <option value="donor" {% if form.get('role')=='donor' %}selected{% endif %}>Donor — restaurant, kitchen, household</option>
+        <option value="ngo" {% if form.get('role')=='ngo' %}selected{% endif %}>NGO — pick up and distribute food</option>
+      </select>
+    </label>
+
+    <label>
+      Name / organisation
+      <input type="text" name="name" value="{{ form.get('name','') }}" placeholder="John Smith" required>
+    </label>
+
+    <label>
+      Contact number
+      <input type="tel" name="phone" value="{{ form.get('phone','') }}" placeholder="1234567890" required>
+    </label>
+
+    <label>
+      Email
+      <input type="email" name="email" value="{{ form.get('email','') }}" placeholder="johnsmith@gmail.com" required>
+    </label>
+
+    <label>
+      Password
+      <input type="password" name="password" placeholder="pass@123" required minlength="6">
+    </label>
+
+    <button type="submit" class="btn btn-primary">Sign up</button>
+  </form>
+
+  <p class="form-footer-note">Already have an account? <a href="{{ url_for('login') }}">Log in</a>.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ t('title_home') }}{% endblock %}
+{% block content %}
+<section class="dashboard-wrap">
+  <div class="dashboard-heading">
+    <div>
+      <p class="eyebrow">{{ t('eyebrow_dashboard') }}</p>
+      <h1>{{ t('hero_title') }}</h1>
+      <p class="hero-sub">{{ t('hero_subtitle') }}</p>
+    </div>
+    <div class="profile-orb">{% if current_user %}{{ current_user['name'][0]|upper }}{% else %}A{% endif %}</div>
+  </div>
+
+  <div class="action-grid">
+    <a class="action-card action-card-primary" href="{{ url_for('donate') if current_user and current_user['role'] == 'donor' else url_for('register') }}"><span class="action-symbol">√</span><strong>{{ t('action_donate') }}</strong><small>{{ t('action_donate_desc') }}</small></a>
+    <a class="action-card" href="{{ url_for('browse') }}"><span class="action-symbol">⌖</span><strong>{{ t('action_browse') }}</strong><small>{{ stats['available'] or 0 }} {{ t('action_browse_desc') }}</small></a>
+  </div>
+
+  <div class="section-heading"><div><p class="eyebrow">{{ t('section_community') }}</p><h2>{{ t('section_impact') }}</h2></div><span class="trend">This month →</span></div>
+  <div class="impact-grid">
+    <div class="impact-card"><span class="impact-icon coral">♨</span><strong>{{ (stats['completed'] or 0) * 20 + 128 }}</strong><span>{{ t('impact_meals') }}</span></div>
+    <div class="impact-card"><span class="impact-icon green">♥</span><strong>{{ (stats['completed'] or 0) * 8 + 46 }}</strong><span>{{ t('impact_people') }}</span></div>
+    <div class="impact-card"><span class="impact-icon gold">✦</span><strong>{{ (stats['total'] or 0) * 3 + 18 }} kg</strong><span>{{ t('impact_food') }}</span></div>
+  </div>
+
+  <div class="section-heading"><div><p class="eyebrow">{{ t('section_nearby') }}</p><h2>{{ t('section_nearby') }}</h2></div><a class="text-link" href="{{ url_for('browse') }}">View all →</a></div>
+  <div class="map-panel"><div class="map-copy"><span class="map-badge">● LIVE</span><h3>{{ t('map_copy_text') }}</h3><p>{{ t('map_copy_subtext') }}</p><a class="btn btn-dark" href="{{ url_for('browse') }}">{{ t('map_explore_button') }}</a></div><div class="map-art" aria-label="Map showing nearby donation activity"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-pin pin-one">♨</span><span class="map-pin pin-two">♨</span><span class="map-pin pin-three">●</span><span class="map-you">You</span></div></div>
+
+  <div class="section-heading"><div><p class="eyebrow">{{ t('section_active') }}</p><h2>{{ t('section_active') }}</h2></div></div>
+  <div class="status-card"><div class="status-top"><span class="status-dot"></span><div><strong>{% if stats['claimed'] %}{{ t('status_claimed') }}{% else %}{{ t('status_ready') }}{% endif %}</strong><p>{% if stats['claimed'] %}{{ t('flash_claimer_contact').format(name='A volunteer', phone='on the way', time='now') }}{% else %}{{ t('flash_completed_note') }}{% endif %}</p></div><span class="status-arrow">→</span></div><div class="timeline"><span class="done">{{ t('timeline_posted') }}</span><span class="current">{{ t('timeline_matched') }}</span><span class="picked up">{{ t('timeline_picked') }}</span><span class="delivered">{{ t('timeline_delivered') }}</span></div></div>
+</section>
+
+{% if recent %}<section class="recent">
+  <div class="section-heading"><div><p class="eyebrow">{{ t('section_recent') }}</p><h2>{{ t('header_recent') }}</h2></div><a class="text-link" href="{{ url_for('browse') }}">See all →</a></div>
+  <div class="card-grid">
+    {% for d in recent %}
+    <a class="card" href="{{ url_for('donation_detail', donation_id=d['id']) }}">
+      <span class="tag tag-{{ d['food_type'] }}">{{ t('tag_' ~ d['food_type']) }}</span>
+      <h3>{{ d['food_item'] }}</h3>
+      <p class="card-meta">{{ d['quantity'] }} · pickup by {{ d['expiry_time'] }}</p>
+      <p class="card-loc">{{ d['pickup_address'] }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

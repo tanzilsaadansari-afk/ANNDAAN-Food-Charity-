@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Server Error \u2014 Anndaan{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>500 - Internal Server Error</h1>
+  <p class="form-sub">Something went wrong on our end. Please try again later.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ url_for('home') }}">Return to Homepage</a>
+  </div>
+</section>
+{% endblock %}

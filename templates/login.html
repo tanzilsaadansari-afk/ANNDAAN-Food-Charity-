@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Log in \u2014 Anndaan{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>Log in</h1>
+  <p class="form-sub">Welcome back. Log in to donate or claim food.</p>
+
+  <form method="post" class="form">
+    <label>
+      Email
+      <input type="email" name="email" value="{{ email }}" placeholder="johnsmith@gmail.com" required autofocus>
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" placeholder="pass@123" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+
+  <p class="form-footer-note">No account yet? <a href="{{ url_for('register') }}">Sign up</a>.</p>
+</section>
+{% endblock %}

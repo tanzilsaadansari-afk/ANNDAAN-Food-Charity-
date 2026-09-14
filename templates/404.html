@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Page Not Found \u2014 Anndaan{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>404 - Page Not Found</h1>
+  <p class="form-sub">The page you're looking for doesn't exist or has been moved.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ url_for('home') }}">Return to Homepage</a>
+  </div>
+</section>
+{% endblock %}

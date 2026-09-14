@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ d['food_item'] }} — Anndaan{% endblock %}
+{% block content %}
+<section class="detail-page">
+  <span class="tag tag-{{ d['food_type'] }}">{{ d['food_type'] }}</span>
+  <h1>{{ d['food_item'] }}</h1>
+  <span class="status-pill status-{{ d['status'] }}">{{ d['status'] }}</span>
+
+  <dl class="detail-list">
+    <dt>Quantity</dt><dd>{{ d['quantity'] }}</dd>
+    <dt>Pickup by</dt><dd>{{ d['expiry_time'] }}</dd>
+    <dt>Pickup address</dt><dd>{{ d['pickup_address'] }}</dd>
+    <dt>Donor</dt><dd>{{ d['donor_name'] }} · {{ d['donor_phone'] }}</dd>
+    {% if d['notes'] %}<dt>Notes</dt><dd>{{ d['notes'] }}</dd>{% endif %}
+    <dt>Posted</dt><dd>{{ d['created_at'] }}</dd>
+  </dl>
+
+  {% if d['status'] == 'available' %}
+    <div class="claim-box">
+      {% if current_user and current_user['role'] == 'ngo' %}
+        <h2>Claim this donation</h2>
+        <p>Claiming as <strong>{{ current_user['name'] }}</strong> ({{ current_user['phone'] }}). This will share your contact with the donor.</p>
+        <form method="post" action="{{ url_for('claim', donation_id=d['id']) }}">
+          <button type="submit" class="btn btn-primary">Claim this donation</button>
+        </form>
+      {% elif current_user %}
+        <p>Only NGO accounts can claim donations.</p>
+      {% else %}
+        <p><a href="{{ url_for('login', next=request.path) }}">Log in as an NGO</a> to claim this donation, or <a href="{{ url_for('register') }}">sign up</a> if you don't have an account yet.</p>
+      {% endif %}
+    </div>
+  {% elif d['status'] == 'claimed' %}
+    <div class="claim-box claimed-box">
+      <h2>Claimed by {{ d['claimer_name'] }}</h2>
+      <p>Contact: {{ d['claimer_phone'] }} · claimed at {{ d['claimed_at'] }}</p>
+      {% if current_user and current_user['id'] in [d['donor_id'], d['claimed_by_id']] %}
+        <form method="post" action="{{ url_for('complete', donation_id=d['id']) }}">
+          <button type="submit" class="btn btn-ghost">Mark as picked up</button>
+        </form>
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="completed-note">This donation was picked up. Thank you for closing the loop.</p>
+  {% endif %}
+</section>
+{% endblock %}
