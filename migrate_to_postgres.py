@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import sqlite3
 from pathlib import Path
@@ -48,7 +48,7 @@ def migrate():
         sys.exit(1)
 
     print("Creating tables in PostgreSQL if they do not exist...")
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+    with open(SCHEMA_PATH, "r", encoding="utf-8-sig") as f:
         schema_sql = f.read()
     pg_cur.execute(schema_sql)
     pg_conn.commit()
@@ -59,6 +59,7 @@ def migrate():
     print(f"Found {len(users)} users in SQLite database.")
 
     for u in users:
+        verified_bool = bool(u["verified"]) if u["verified"] is not None else False
         pg_cur.execute(
             """
             INSERT INTO users (id, name, phone, email, password_hash, role, verified, created_at)
@@ -71,7 +72,7 @@ def migrate():
                 verified = EXCLUDED.verified,
                 created_at = EXCLUDED.created_at
             """,
-            (u["id"], u["name"], u["phone"], u["email"], u["password_hash"], u["role"], u["verified"], u["created_at"])
+            (u["id"], u["name"], u["phone"], u["email"], u["password_hash"], u["role"], verified_bool, u["created_at"])
         )
     pg_conn.commit()
     print(f"Migrated {len(users)} users.")

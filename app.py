@@ -283,7 +283,7 @@ def init_db():
             cur = conn.cursor(cursor_factory=DictCursor)
             schema_file = Path(__file__).parent / "schema_postgres.sql"
             if schema_file.exists():
-                with open(schema_file, "r", encoding="utf-8") as f:
+                with open(schema_file, "r", encoding="utf-8-sig") as f:
                     cur.execute(f.read())
                 conn.commit()
 
