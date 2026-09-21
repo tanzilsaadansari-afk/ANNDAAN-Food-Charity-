@@ -787,10 +787,14 @@ def api_donations():
     return jsonify([dict(id=r['id'], food_type=r['food_type'], latitude=r['latitude'], longitude=r['longitude'], status=r['status']) for r in get_db().execute("SELECT id,food_type,latitude,longitude,status FROM donations WHERE status='available' AND latitude IS NOT NULL AND longitude IS NOT NULL").fetchall()])
 
 
-if __name__ == "__main__":
-    init_db()
-    # Run cleanup first to remove expired donations
+# Initialize DB and cleanup on startup (works with both gunicorn and direct python app.py)
+try:
     with app.app_context():
+        init_db()
         cleanup_expired_donations()
+except Exception as _e:
+    print(f"Notice on app initialization: {_e}")
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
     app.run(debug=True, port=port)
