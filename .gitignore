@@ -1,0 +1,21 @@
+﻿# Environment variables
+.env
+.env.local
+
+# SQLite databases
+*.db
+*.sqlite3
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Editor configurations
+.vscode/
+.idea/

@@ -5,10 +5,24 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, g, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 DB_PATH = Path(__file__).parent / "anndaan.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Attempt importing psycopg2 for PostgreSQL support
+try:
+    import psycopg2
+    from psycopg2.extras import DictCursor
+    HAS_PSYCOPG2 = True
+except ImportError:
+    HAS_PSYCOPG2 = False
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")  # Use env var in production
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 # Language translations
 translations = {
@@ -221,11 +235,39 @@ translations = {
 }
 
 # ---------- DB helpers ----------
+class PostgresDBWrapper:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def execute(self, query, params=None):
+        cur = self.conn.cursor(cursor_factory=DictCursor)
+        pg_query = query.replace("?", "%s")
+        if params is not None:
+            cur.execute(pg_query, tuple(params))
+        else:
+            cur.execute(pg_query)
+        return cur
+
+    def commit(self):
+        self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
+
+    def close(self):
+        self.conn.close()
+
+
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        if DATABASE_URL and HAS_PSYCOPG2:
+            conn = psycopg2.connect(DATABASE_URL)
+            g.db = PostgresDBWrapper(conn)
+        else:
+            g.db = sqlite3.connect(DB_PATH)
+            g.db.row_factory = sqlite3.Row
     return g.db
+
 
 @app.teardown_appcontext
 def close_db(exception=None):
@@ -233,11 +275,75 @@ def close_db(exception=None):
     if db is not None:
         db.close()
 
+
 def init_db():
-    # Remove existing database to start fresh with seed data (for demo purposes)
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
-    
+    if DATABASE_URL and HAS_PSYCOPG2:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor(cursor_factory=DictCursor)
+            schema_file = Path(__file__).parent / "schema_postgres.sql"
+            if schema_file.exists():
+                with open(schema_file, "r", encoding="utf-8") as f:
+                    cur.execute(f.read())
+                conn.commit()
+
+            cur.execute("SELECT COUNT(*) FROM users")
+            row = cur.fetchone()
+            if row and row[0] == 0:
+                sample_users = [
+                    ("Fresh Foods Donor", "5551234567", "donor1@example.com", "donor", 0),
+                    ("Community Kitchen NGO", "5559876543", "ngo1@example.com", "ngo", 1),
+                    ("Green Market Donor", "5555555555", "donor2@example.com", "donor", 0),
+                    ("Helping Hands NGO", "5551112222", "ngo2@example.com", "ngo", 0),
+                    ("Sunny Farm Donor", "5553333333", "donor3@example.com", "donor", 0),
+                    ("City Food Bank NGO", "5554444444", "ngo3@example.com", "ngo", 1),
+                ]
+                for name, phone, email, role, verified in sample_users:
+                    cur.execute(
+                        """
+                        INSERT INTO users (name, phone, email, password_hash, role, verified, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (email) DO NOTHING
+                        """,
+                        (name, phone, email, generate_password_hash("password123"), role, verified, datetime.now().isoformat(timespec="minutes")),
+                    )
+                conn.commit()
+
+                now = datetime.now()
+                sample_donations = [
+                    (1, "Cooked Rice and Dal", "veg", "serves 30 people", "123 Main Street, Downtown", (now + timedelta(hours=2)).isoformat(timespec="minutes"), "Freshly cooked, ready to serve", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=2)).isoformat(timespec="minutes"), None, None),
+                    (1, "Vegetable Curry", "veg", "serves 25 people", "456 Oak Avenue, Uptown", (now + timedelta(hours=4)).isoformat(timespec="minutes"), "Spicy vegetable curry in containers", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=4)).isoformat(timespec="minutes"), None, None),
+                    (3, "Fresh Fruits Basket", "veg", "serves 15 people", "789 Pine Road, Suburb", (now + timedelta(hours=1)).isoformat(timespec="minutes"), "Assorted fruits: apples, bananas, oranges", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=1)).isoformat(timespec="minutes"), None, None),
+                    (5, "Grilled Chicken Platter", "non-veg", "serves 20 people", "321 Elm Street, West Side", (now + timedelta(hours=3)).isoformat(timespec="minutes"), "Grilled chicken with rice and vegetables", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=3)).isoformat(timespec="minutes"), None, None),
+                    (1, "Fresh Salad Mix", "veg", "serves 10 people", "123 Main Street, Downtown", (now + timedelta(hours=6)).isoformat(timespec="minutes"), "Mixed greens with dressing", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=6)).isoformat(timespec="minutes"), 40.7128, -74.0060),
+                    (3, "Bread Loaves", "veg", "serves 40 people", "789 Pine Road, Suburb", (now + timedelta(hours=5)).isoformat(timespec="minutes"), "Freshly baked whole wheat bread", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=5)).isoformat(timespec="minutes"), 34.0522, -118.2437),
+                    (5, "Chocolate Cake", "veg", "serves 8 people", "321 Elm Street, West Side", (now + timedelta(hours=2)).isoformat(timespec="minutes"), "Homemade chocolate cake", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=2)).isoformat(timespec="minutes"), 41.8781, -87.6298),
+                ]
+                for donation in sample_donations:
+                    cur.execute(
+                        """
+                        INSERT INTO donations
+                            (donor_id, food_item, food_type, quantity,
+                             pickup_address, expiry_time, notes, status, created_at, expires_at,
+                             latitude, longitude)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        donation,
+                    )
+                conn.commit()
+
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"Warning: Failed to connect to PostgreSQL during init_db: {e}")
+            print("Falling back to SQLite...")
+            _init_sqlite()
+    else:
+        _init_sqlite()
+
+
+def _init_sqlite():
+    needs_seed = not os.path.exists(DB_PATH)
     db = sqlite3.connect(DB_PATH)
     db.execute(
         """
@@ -277,63 +383,47 @@ def init_db():
         """
     )
     db.commit()
-    
-    # Insert sample users (donors and NGOs)
-    sample_users = [
-        ("Fresh Foods Donor", "5551234567", "donor1@example.com", "donor", 0),
-        ("Community Kitchen NGO", "5559876543", "ngo1@example.com", "ngo", 1),  # Verified NGO
-        ("Green Market Donor", "5555555555", "donor2@example.com", "donor", 0),
-        ("Helping Hands NGO", "5551112222", "ngo2@example.com", "ngo", 0),     # Not verified
-        ("Sunny Farm Donor", "5553333333", "donor3@example.com", "donor", 0),
-        ("City Food Bank NGO", "5554444444", "ngo3@example.com", "ngo", 1),    # Verified NGO
-    ]
-    
-    for name, phone, email, role, verified in sample_users:
-        db.execute(
-            """
-            INSERT INTO users (name, phone, email, password_hash, role, verified, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                name,
-                phone,
-                email,
-                generate_password_hash("password123"),  # Same password for all samples
-                role,
-                verified,
-                datetime.now().isoformat(timespec="minutes"),
-            ),
-        )
-    
-    # Insert sample donations
-    now = datetime.now()
-    sample_donations = [
-        # Donor 1 (Fresh Foods Donor)
-        (1, "Cooked Rice and Dal", "veg", "serves 30 people", "123 Main Street, Downtown", (now + timedelta(hours=2)).isoformat(timespec="minutes"), "Freshly cooked, ready to serve", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=2)).isoformat(timespec="minutes"), None, None),
-        (1, "Vegetable Curry", "veg", "serves 25 people", "456 Oak Avenue, Uptown", (now + timedelta(hours=4)).isoformat(timespec="minutes"), "Spicy vegetable curry in containers", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=4)).isoformat(timespec="minutes"), None, None),
-        # Donor 3 (Green Market Donor)
-        (3, "Fresh Fruits Basket", "veg", "serves 15 people", "789 Pine Road, Suburb", (now + timedelta(hours=1)).isoformat(timespec="minutes"), "Assorted fruits: apples, bananas, oranges", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=1)).isoformat(timespec="minutes"), None, None),
-        # Donor 5 (Sunny Farm Donor)
-        (5, "Grilled Chicken Platter", "non-veg", "serves 20 people", "321 Elm Street, West Side", (now + timedelta(hours=3)).isoformat(timespec="minutes"), "Grilled chicken with rice and vegetables", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=3)).isoformat(timespec="minutes"), None, None),
-        # Add a few more with coordinates for map testing
-        (1, "Fresh Salad Mix", "veg", "serves 10 people", "123 Main Street, Downtown", (now + timedelta(hours=6)).isoformat(timespec="minutes"), "Mixed greens with dressing", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=6)).isoformat(timespec="minutes"), 40.7128, -74.0060),  # NYC coordinates
-        (3, "Bread Loaves", "veg", "serves 40 people", "789 Pine Road, Suburb", (now + timedelta(hours=5)).isoformat(timespec="minutes"), "Freshly baked whole wheat bread", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=5)).isoformat(timespec="minutes"), 34.0522, -118.2437),  # LA coordinates
-        (5, "Chocolate Cake", "veg", "serves 8 people", "321 Elm Street, West Side", (now + timedelta(hours=2)).isoformat(timespec="minutes"), "Homemade chocolate cake", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=2)).isoformat(timespec="minutes"), 41.8781, -87.6298),  # Chicago coordinates
-    ]
-    
-    for donation in sample_donations:
-        db.execute(
-            """
-            INSERT INTO donations
-                (donor_id, food_item, food_type, quantity,
-                 pickup_address, expiry_time, notes, status, created_at, expires_at,
-                 latitude, longitude)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            donation,
-        )
-    
-    db.commit()
+
+    if needs_seed:
+        sample_users = [
+            ("Fresh Foods Donor", "5551234567", "donor1@example.com", "donor", 0),
+            ("Community Kitchen NGO", "5559876543", "ngo1@example.com", "ngo", 1),
+            ("Green Market Donor", "5555555555", "donor2@example.com", "donor", 0),
+            ("Helping Hands NGO", "5551112222", "ngo2@example.com", "ngo", 0),
+            ("Sunny Farm Donor", "5553333333", "donor3@example.com", "donor", 0),
+            ("City Food Bank NGO", "5554444444", "ngo3@example.com", "ngo", 1),
+        ]
+        for name, phone, email, role, verified in sample_users:
+            db.execute(
+                """
+                INSERT INTO users (name, phone, email, password_hash, role, verified, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (name, phone, email, generate_password_hash("password123"), role, verified, datetime.now().isoformat(timespec="minutes")),
+            )
+
+        now = datetime.now()
+        sample_donations = [
+            (1, "Cooked Rice and Dal", "veg", "serves 30 people", "123 Main Street, Downtown", (now + timedelta(hours=2)).isoformat(timespec="minutes"), "Freshly cooked, ready to serve", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=2)).isoformat(timespec="minutes"), None, None),
+            (1, "Vegetable Curry", "veg", "serves 25 people", "456 Oak Avenue, Uptown", (now + timedelta(hours=4)).isoformat(timespec="minutes"), "Spicy vegetable curry in containers", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=4)).isoformat(timespec="minutes"), None, None),
+            (3, "Fresh Fruits Basket", "veg", "serves 15 people", "789 Pine Road, Suburb", (now + timedelta(hours=1)).isoformat(timespec="minutes"), "Assorted fruits: apples, bananas, oranges", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=1)).isoformat(timespec="minutes"), None, None),
+            (5, "Grilled Chicken Platter", "non-veg", "serves 20 people", "321 Elm Street, West Side", (now + timedelta(hours=3)).isoformat(timespec="minutes"), "Grilled chicken with rice and vegetables", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=3)).isoformat(timespec="minutes"), None, None),
+            (1, "Fresh Salad Mix", "veg", "serves 10 people", "123 Main Street, Downtown", (now + timedelta(hours=6)).isoformat(timespec="minutes"), "Mixed greens with dressing", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=6)).isoformat(timespec="minutes"), 40.7128, -74.0060),
+            (3, "Bread Loaves", "veg", "serves 40 people", "789 Pine Road, Suburb", (now + timedelta(hours=5)).isoformat(timespec="minutes"), "Freshly baked whole wheat bread", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=5)).isoformat(timespec="minutes"), 34.0522, -118.2437),
+            (5, "Chocolate Cake", "veg", "serves 8 people", "321 Elm Street, West Side", (now + timedelta(hours=2)).isoformat(timespec="minutes"), "Homemade chocolate cake", "available", now.isoformat(timespec="minutes"), (now + timedelta(hours=2)).isoformat(timespec="minutes"), 41.8781, -87.6298),
+        ]
+        for donation in sample_donations:
+            db.execute(
+                """
+                INSERT INTO donations
+                    (donor_id, food_item, food_type, quantity,
+                     pickup_address, expiry_time, notes, status, created_at, expires_at,
+                     latitude, longitude)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                donation,
+            )
+        db.commit()
     db.close()
 
 # ---------- auth helpers ----------
@@ -702,4 +792,5 @@ if __name__ == "__main__":
     # Run cleanup first to remove expired donations
     with app.app_context():
         cleanup_expired_donations()
-    app.run(debug=True, port=5050)
+    port = int(os.environ.get("PORT", 5050))
+    app.run(debug=True, port=port)

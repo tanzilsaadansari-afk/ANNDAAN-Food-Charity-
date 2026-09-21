@@ -7,11 +7,8 @@ before it spoils.
 ## Stack
 
 - **Flask** (Python) — server, routing, form handling
-- **SQLite** — single-file database, zero setup
+- **PostgreSQL / Supabase** (with fallback to SQLite) — relational database
 - **Jinja2 templates + plain CSS** — no build step, no JS framework
-
-Chosen for a prototype because it's one process, one file DB, and runs with
-no npm/build tooling — you can be looking at the app in under a minute.
 
 ## How to run it
 
@@ -19,11 +16,32 @@ no npm/build tooling — you can be looking at the app in under a minute.
 cd anndaan
 python3 -m venv venv && source venv/bin/activate   # optional but recommended
 pip install -r requirements.txt
-python3 app.py
 ```
 
-Open **http://localhost:5050**. The SQLite database (`anndaan.db`) is created
-automatically on first run in the same folder.
+### Option A: Running with PostgreSQL (Supabase / Neon / Render)
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Set your `DATABASE_URL` in `.env`:
+   ```env
+   DATABASE_URL=postgresql://postgres.your-project:password@host:port/postgres
+   ```
+3. (Optional) If migrating existing data from SQLite to PostgreSQL:
+   ```bash
+   python migrate_to_postgres.py
+   ```
+4. Start the application:
+   ```bash
+   python app.py
+   ```
+
+### Option B: Running with local SQLite (Zero Setup)
+Simply leave `DATABASE_URL` blank or unset in `.env`:
+```bash
+python app.py
+```
+Open **http://localhost:5050**.
 
 ## What's in the prototype
 
