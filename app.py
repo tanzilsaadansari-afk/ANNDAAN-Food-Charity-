@@ -2,6 +2,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
+from urllib.parse import urlparse
 from flask import Flask, render_template, request, redirect, url_for, flash, g, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
@@ -545,7 +546,15 @@ def login():
 
         session["user_id"] = user["id"]
         flash(t('flash_login').format(name=user['name']), "success")
-        next_url = request.args.get("next")
+        next_url = request.args.get("next", "")
+        parsed_next = urlparse(next_url)
+        if (
+            not next_url.startswith("/")
+            or next_url.startswith("//")
+            or parsed_next.scheme
+            or parsed_next.netloc
+        ):
+            next_url = ""
         return redirect(next_url or url_for("home"))
 
     return render_template("login.html", email="")
@@ -718,23 +727,34 @@ def donation_detail(donation_id):
 @role_required("ngo")
 def claim(donation_id):
     db = get_db()
+    current_time = datetime.now().isoformat(timespec="minutes")
     d = db.execute(
-        "SELECT * FROM donations WHERE id=? AND status='available'",
-        (donation_id,),
+        """
+        SELECT * FROM donations
+        WHERE id=?
+          AND status='available'
+          AND (expires_at IS NULL OR expires_at > ?)
+        """,
+        (donation_id, current_time),
     ).fetchone()
     if d is None:
         flash(t('flash_donation_not_found'), "error")
         return redirect(url_for("browse"))
 
-    db.execute(
+    result = db.execute(
         """
         UPDATE donations
         SET status='claimed', claimed_by_id=?, claimed_at=?
-        WHERE id=? AND status='available'
+        WHERE id=?
+          AND status='available'
+          AND (expires_at IS NULL OR expires_at > ?)
         """,
-        (get_current_user()["id"], datetime.now().isoformat(timespec="minutes"), donation_id),
+        (get_current_user()["id"], current_time, donation_id, current_time),
     )
     db.commit()
+    if result.rowcount != 1:
+        flash(t('flash_donation_expired'), "error")
+        return redirect(url_for("browse"))
     flash(t('flash_donation_claimed'), "success")
     return redirect(url_for("donation_detail", donation_id=donation_id))
 
