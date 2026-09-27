@@ -24,7 +24,82 @@
   </div>
 
   <div class="section-heading"><div><p class="eyebrow">{{ t('section_nearby') }}</p><h2>{{ t('section_nearby') }}</h2></div><a class="text-link" href="{{ url_for('browse') }}">View all →</a></div>
-  <div class="map-panel"><div class="map-copy"><span class="map-badge">● LIVE</span><h3>{{ t('map_copy_text') }}</h3><p>{{ t('map_copy_subtext') }}</p><a class="btn btn-dark" href="{{ url_for('browse') }}">{{ t('map_explore_button') }}</a></div><div class="map-art" aria-label="Map showing nearby donation activity"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-pin pin-one">♨</span><span class="map-pin pin-two">♨</span><span class="map-pin pin-three">●</span><span class="map-you">You</span></div></div>
+
+  <div class="map-panel map-panel-real">
+    <div class="map-filters" role="group" aria-label="Map filters">
+      <button type="button" class="map-filter active" data-filter="all">🏠 Show All</button>
+      <button type="button" class="map-filter" data-filter="ngo">🏢 NGO Office</button>
+      <button type="button" class="map-filter" data-filter="education">🎓 Education</button>
+      <button type="button" class="map-filter" data-filter="medical">🏥 Medical Camp</button>
+      <button type="button" class="map-filter" data-filter="food">🍲 Food Distribution</button>
+    </div>
+    <div id="nearby-map" class="nearby-map" aria-label="Interactive map showing nearby community activities"></div>
+  </div>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    .map-panel-real { padding: 16px; overflow: hidden; background: #fff; }
+    .map-filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+    .map-filter { border: 1px solid #e5e7eb; background: #fff; color: #394150; border-radius: 12px; padding: 11px 16px; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.05); transition: .2s ease; white-space: nowrap; }
+    .map-filter:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.09); }
+    .map-filter.active { background: #168154; color: #fff; border-color: #168154; }
+    .nearby-map { width: 100%; height: 520px; border-radius: 18px; overflow: hidden; background: #e9ece7; border: 1px solid #e5e7eb; }
+    .leaflet-control-zoom { border: 0 !important; box-shadow: 0 3px 12px rgba(0,0,0,.15) !important; }
+    .leaflet-control-zoom a { width: 38px !important; height: 38px !important; line-height: 38px !important; font-size: 22px !important; }
+    .activity-popup strong { display: block; margin-bottom: 3px; font-size: 15px; }
+    .activity-popup span { color: #5f6672; }
+    @media (max-width: 700px) { .map-filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; } .nearby-map { height: 430px; } }
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const map = L.map('nearby-map', { zoomControl: true }).setView([21.1458, 79.0882], 12);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const locations = [
+        { type: 'ngo', name: 'NGO Office', lat: 21.1645, lng: 79.0830, text: 'Community support centre' },
+        { type: 'education', name: 'Education Centre', lat: 21.1450, lng: 79.0710, text: 'Learning and donation point' },
+        { type: 'medical', name: 'Medical Camp', lat: 21.1515, lng: 79.1050, text: 'Nearby medical camp' },
+        { type: 'food', name: 'Food Distribution', lat: 21.1325, lng: 79.0755, text: 'Food collection and distribution point' },
+        { type: 'ngo', name: 'Community NGO', lat: 21.1385, lng: 79.0980, text: 'Volunteer coordination point' }
+      ];
+
+      const markers = locations.map(function (place) {
+        const marker = L.marker([place.lat, place.lng])
+          .bindPopup('<div class="activity-popup"><strong>' + place.name + '</strong><span>' + place.text + '</span></div>')
+          .addTo(map);
+        marker.activityType = place.type;
+        return marker;
+      });
+
+      // A separate blue marker shows the centre of the nearby area.
+      L.circleMarker([21.1458, 79.0882], { radius: 7, weight: 3, fillOpacity: 1 })
+        .bindTooltip('You', { permanent: false, direction: 'top' })
+        .addTo(map);
+
+      setTimeout(function () { map.invalidateSize(); }, 150);
+
+      document.querySelectorAll('.map-filter').forEach(function (button) {
+        button.addEventListener('click', function () {
+          document.querySelectorAll('.map-filter').forEach(function (b) { b.classList.remove('active'); });
+          button.classList.add('active');
+          const filter = button.dataset.filter;
+
+          markers.forEach(function (marker) {
+            if (filter === 'all' || marker.activityType === filter) {
+              if (!map.hasLayer(marker)) marker.addTo(map);
+            } else if (map.hasLayer(marker)) {
+              map.removeLayer(marker);
+            }
+          });
+        });
+      });
+    });
+  </script>
 
   <div class="section-heading"><div><p class="eyebrow">{{ t('section_active') }}</p><h2>{{ t('section_active') }}</h2></div></div>
   <div class="status-card"><div class="status-top"><span class="status-dot"></span><div><strong>{% if stats['claimed'] %}{{ t('status_claimed') }}{% else %}{{ t('status_ready') }}{% endif %}</strong><p>{% if stats['claimed'] %}{{ t('flash_claimer_contact').format(name='A volunteer', phone='on the way', time='now') }}{% else %}{{ t('flash_completed_note') }}{% endif %}</p></div><span class="status-arrow">→</span></div><div class="timeline"><span class="done">{{ t('timeline_posted') }}</span><span class="current">{{ t('timeline_matched') }}</span><span class="picked up">{{ t('timeline_picked') }}</span><span class="delivered">{{ t('timeline_delivered') }}</span></div></div>
