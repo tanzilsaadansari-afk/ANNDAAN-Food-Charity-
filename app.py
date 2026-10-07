@@ -22,6 +22,8 @@ try:
 except ImportError:
     HAS_PSYCOPG2 = False
 
+DATABASE_ERRORS = (sqlite3.Error, psycopg2.Error) if HAS_PSYCOPG2 else (sqlite3.Error,)
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
@@ -805,6 +807,16 @@ def about():
 @app.route('/api/donations')
 def api_donations():
     return jsonify([dict(id=r['id'], food_type=r['food_type'], latitude=r['latitude'], longitude=r['longitude'], status=r['status']) for r in get_db().execute("SELECT id,food_type,latitude,longitude,status FROM donations WHERE status='available' AND latitude IS NOT NULL AND longitude IS NOT NULL").fetchall()])
+
+
+@app.route("/health")
+def health():
+    try:
+        get_db().execute("SELECT 1").fetchone()
+    except DATABASE_ERRORS:
+        app.logger.exception("Health check failed: database is unavailable")
+        return jsonify(status="unavailable", database="unavailable"), 503
+    return jsonify(status="ok", database="ok")
 
 
 # Initialize DB and cleanup on startup (works with both gunicorn and direct python app.py)

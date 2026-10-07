@@ -54,6 +54,8 @@ Open **http://localhost:5050**.
 - **Donation detail** (`/donation/<id>`) — full details; a recipient claims
   it by leaving their name and contact (which reveals the donor's contact);
   the claimant later marks it picked up.
+- **Health check** (`/health`) — returns JSON status and checks database
+  connectivity for deployment monitoring.
 
 Donation status moves `available → claimed → completed`. Everything is
 stored in one `donations` table — see `app.py::init_db` for the schema.
