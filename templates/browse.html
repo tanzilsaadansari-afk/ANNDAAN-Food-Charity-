@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Find food — Anndaan{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <section class="browse-page">
   <div class="browse-head">
     <h1>Available right now</h1>
-    <div class="filters">
-      <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse', q=q) }}">All</a>
-      <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg', q=q) }}">Veg</a>
-      <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg', q=q) }}">Non-veg</a>
+    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+      <div class="filters">
+        <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse', q=q) }}">All</a>
+        <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg', q=q) }}">Veg</a>
+        <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg', q=q) }}">Non-veg</a>
+      </div>
+      <button type="button" id="toggle-map-btn" class="btn btn-ghost" style="padding: 0.5rem 1rem; font-size: 0.88rem;">
+        🗺️ Show Map
+      </button>
     </div>
   </div>
 
@@ -19,6 +25,15 @@
       <a href="{{ url_for('browse', food_type=food_type) }}" class="btn btn-ghost" style="padding: 0.65rem 1rem;">Clear</a>
     {% endif %}
   </form>
+
+  <!-- Interactive Map View for Browse -->
+  <div id="browse-map-container" style="display: none; margin-bottom: 1.75rem; background: #fff; padding: 12px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <span style="font-weight: 700; font-size: 0.95rem; color: var(--color-dark);">📍 Live Food Request Map</span>
+      <span style="font-size: 0.82rem; color: var(--color-medium);">Tap pins to see food and claim</span>
+    </div>
+    <div id="browse-map" style="height: 380px; border-radius: 12px; overflow: hidden; background: #e9ece7;"></div>
+  </div>
 
   {% if donations %}
   <div class="card-grid">
@@ -47,4 +62,68 @@
   </div>
   {% endif %}
 </section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const toggleBtn = document.getElementById('toggle-map-btn');
+    const mapContainer = document.getElementById('browse-map-container');
+    let browseMap = null;
+
+    toggleBtn.addEventListener('click', function () {
+      const isHidden = mapContainer.style.display === 'none';
+      if (isHidden) {
+        mapContainer.style.display = 'block';
+        toggleBtn.textContent = '📋 Hide Map';
+        if (!browseMap) {
+          initBrowseMap();
+        } else {
+          setTimeout(function () { browseMap.invalidateSize(); }, 150);
+        }
+      } else {
+        mapContainer.style.display = 'none';
+        toggleBtn.textContent = '🗺️ Show Map';
+      }
+    });
+
+    function initBrowseMap() {
+      browseMap = L.map('browse-map').setView([21.1458, 79.0882], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(browseMap);
+
+      const items = [
+        {% for d in donations %}
+          {% if d['latitude'] and d['longitude'] %}
+          {
+            id: {{ d['id'] }},
+            item: {{ d['food_item']|tojson }},
+            type: {{ d['food_type']|tojson }},
+            qty: {{ d['quantity']|tojson }},
+            addr: {{ d['pickup_address']|tojson }},
+            lat: {{ d['latitude'] }},
+            lng: {{ d['longitude'] }}
+          },
+          {% endif %}
+        {% endfor %}
+      ];
+
+      const markers = [];
+      items.forEach(function (p) {
+        const marker = L.marker([p.lat, p.lng])
+          .bindPopup('<div style="font-size:13px;"><strong>🍲 ' + p.item + '</strong><br>' + p.qty + '<br><span style="color:#64748b;">' + p.addr + '</span><br><a href="/donation/' + p.id + '" style="color:#168154;font-weight:700;display:inline-block;margin-top:4px;">View & Claim →</a></div>')
+          .addTo(browseMap);
+        markers.push(marker);
+      });
+
+      if (markers.length > 0) {
+        const group = new L.featureGroup(markers);
+        browseMap.fitBounds(group.getBounds().pad(0.15));
+      }
+
+      setTimeout(function () { browseMap.invalidateSize(); }, 200);
+    }
+  });
+</script>
 {% endblock %}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ d['food_item'] }} — Anndaan{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <section class="detail-page">
   <span class="tag tag-{{ d['food_type'] }}">{{ d['food_type'] }}</span>
   <h1>{{ d['food_item'] }}</h1>
@@ -10,18 +11,44 @@
     <dt>Quantity</dt><dd>{{ d['quantity'] }}</dd>
     <dt>Pickup by</dt><dd>{{ d['expiry_time'] }}</dd>
     <dt>Pickup address</dt>
-    <dd>
-      {{ d['pickup_address'] }}
-      {% if d['latitude'] and d['longitude'] %}
-        <br><a href="https://www.google.com/maps/search/?api=1&query={{ d['latitude'] }},{{ d['longitude'] }}" target="_blank" rel="noopener" style="font-size: 0.9em; color: #e86c5a; text-decoration: underline;">Open location in Maps ↗</a>
-      {% else %}
-        <br><a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" style="font-size: 0.9em; color: #e86c5a; text-decoration: underline;">Open address in Maps ↗</a>
-      {% endif %}
-    </dd>
+    <dd>{{ d['pickup_address'] }}</dd>
     <dt>Donor</dt><dd>{{ d['donor_name'] }} · {{ d['donor_phone'] }}</dd>
     {% if d['notes'] %}<dt>Notes</dt><dd>{{ d['notes'] }}</dd>{% endif %}
     <dt>Posted</dt><dd>{{ d['created_at'] }}</dd>
   </dl>
+
+  <!-- Interactive Location Map -->
+  <div class="location-map-section" style="margin: 2rem 0; background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+      <h3 style="font-family: var(--font-heading); font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+        📍 Pickup Location Map
+      </h3>
+      {% if d['latitude'] and d['longitude'] %}
+        <a href="https://www.google.com/maps/dir/?api=1&destination={{ d['latitude'] }},{{ d['longitude'] }}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
+          Open in Google Maps ↗
+        </a>
+      {% else %}
+        <a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
+          Open in Google Maps ↗
+        </a>
+      {% endif %}
+    </div>
+
+    {% if d['latitude'] and d['longitude'] %}
+      <div id="detail-map" style="height: 320px; border-radius: 12px; border: 1px solid var(--color-border); overflow: hidden; background: #e9ece7;"></div>
+      <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--color-medium); display: flex; align-items: center; gap: 0.3rem;">
+        <span>🎯 Pin coordinates: {{ d['latitude'] }}, {{ d['longitude'] }}</span>
+      </p>
+    {% else %}
+      <div style="background: #f8fafc; border: 1px dashed var(--color-border); border-radius: 12px; padding: 2rem; text-align: center; color: var(--color-medium);">
+        <p style="margin-bottom: 0.5rem;">📍 Location: <strong>{{ d['pickup_address'] }}</strong></p>
+        <p style="font-size: 0.85rem; margin-bottom: 1rem;">Map coordinates were not pinned by the donor for this post.</p>
+        <a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" class="btn btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.9rem;">
+          Search Address on Google Maps ↗
+        </a>
+      </div>
+    {% endif %}
+  </div>
 
   {% if d['status'] == 'available' %}
     <div class="claim-box">
@@ -51,4 +78,24 @@
     <p class="completed-note">This donation was picked up. Thank you for closing the loop.</p>
   {% endif %}
 </section>
+
+{% if d['latitude'] and d['longitude'] %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const lat = {{ d['latitude'] }};
+    const lng = {{ d['longitude'] }};
+    const map = L.map('detail-map').setView([lat, lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const marker = L.marker([lat, lng]).addTo(map);
+    marker.bindPopup('<div style="font-size:14px;"><strong>🍲 {{ d["food_item"]|escape }}</strong><br><span style="color:#64748b;">{{ d["pickup_address"]|escape }}</span></div>').openPopup();
+
+    setTimeout(function() { map.invalidateSize(); }, 200);
+  });
+</script>
+{% endif %}
 {% endblock %}
