@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ d['food_item'] }} — Anndaan{% endblock %}
 {% block content %}
+{% if current_user and current_user['role'] == 'ngo' %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endif %}
+
 <section class="detail-page">
   <span class="tag tag-{{ d['food_type'] }}">{{ d['food_type'] }}</span>
   <h1>{{ d['food_item'] }}</h1>
@@ -10,46 +13,77 @@
   <dl class="detail-list">
     <dt>Quantity</dt><dd>{{ d['quantity'] }}</dd>
     <dt>Pickup by</dt><dd>{{ d['expiry_time'] }}</dd>
-    <dt>Pickup address</dt>
-    <dd>{{ d['pickup_address'] }}</dd>
-    <dt>Donor</dt><dd>{{ d['donor_name'] }} · {{ d['donor_phone'] }}</dd>
+    <dt>Pickup address</dt><dd>{{ d['pickup_address'] }}</dd>
+    <dt>Donor</dt>
+    <dd>
+      {% if (current_user and current_user['role'] == 'ngo') or (current_user and current_user['id'] == d['donor_id']) %}
+        {{ d['donor_name'] }} · {{ d['donor_phone'] }}
+      {% else %}
+        {{ d['donor_name'] }}
+      {% endif %}
+    </dd>
     {% if d['notes'] %}<dt>Notes</dt><dd>{{ d['notes'] }}</dd>{% endif %}
     <dt>Posted</dt><dd>{{ d['created_at'] }}</dd>
   </dl>
 
-  <!-- Interactive Location Map -->
-  <div class="location-map-section" style="margin: 2rem 0; background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-      <h3 style="font-family: var(--font-heading); font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
-        📍 Pickup Location Map
-      </h3>
+  <!-- Location Map Section - Restrict map and Google Maps exclusively to NGOs -->
+  {% if current_user and current_user['role'] == 'ngo' %}
+    <div class="location-map-section" style="margin: 2rem 0; background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 style="font-family: var(--font-heading); font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+          📍 Pickup Location Map (NGO Access)
+        </h3>
+        {% if d['latitude'] and d['longitude'] %}
+          <a href="https://www.google.com/maps/dir/?api=1&destination={{ d['latitude'] }},{{ d['longitude'] }}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
+            Open in Google Maps ↗
+          </a>
+        {% else %}
+          <a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
+            Open in Google Maps ↗
+          </a>
+        {% endif %}
+      </div>
+
       {% if d['latitude'] and d['longitude'] %}
-        <a href="https://www.google.com/maps/dir/?api=1&destination={{ d['latitude'] }},{{ d['longitude'] }}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
-          Open in Google Maps ↗
-        </a>
+        <div id="detail-map" style="height: 320px; border-radius: 12px; border: 1px solid var(--color-border); overflow: hidden; background: #e9ece7;"></div>
+        <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--color-medium); display: flex; align-items: center; gap: 0.3rem;">
+          <span>🎯 GPS: {{ d['latitude'] }}, {{ d['longitude'] }}</span>
+        </p>
       {% else %}
-        <a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding: 0.45rem 1rem; font-size: 0.85rem;">
-          Open in Google Maps ↗
-        </a>
+        <div style="background: #f8fafc; border: 1px dashed var(--color-border); border-radius: 12px; padding: 1.5rem; text-align: center; color: var(--color-medium);">
+          <p style="margin-bottom: 0.75rem;">📍 Location: <strong>{{ d['pickup_address'] }}</strong></p>
+          <a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" class="btn btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.9rem;">
+            Open in Google Maps ↗
+          </a>
+        </div>
       {% endif %}
     </div>
-
-    {% if d['latitude'] and d['longitude'] %}
-      <div id="detail-map" style="height: 320px; border-radius: 12px; border: 1px solid var(--color-border); overflow: hidden; background: #e9ece7;"></div>
-      <p style="margin-top: 0.5rem; font-size: 0.82rem; color: var(--color-medium); display: flex; align-items: center; gap: 0.3rem;">
-        <span>🎯 Pin coordinates: {{ d['latitude'] }}, {{ d['longitude'] }}</span>
+  {% else %}
+    <!-- Non-NGO / Visitors / Donors: Map section locked -->
+    <div class="location-map-section" style="margin: 2rem 0; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: var(--radius-lg); padding: 2rem 1.5rem; text-align: center;">
+      <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🔒</div>
+      <h3 style="font-family: var(--font-heading); font-size: 1.2rem; margin-bottom: 0.4rem; color: var(--color-dark);">
+        Pickup Map & Google Maps Navigation Reserved for NGOs
+      </h3>
+      <p style="color: var(--color-medium); font-size: 0.92rem; max-width: 520px; margin: 0 auto 1.25rem; line-height: 1.5;">
+        You can see the food donation details above. To protect donor safety and coordinate food pickup, interactive map pins and Google Maps navigation are strictly accessible to registered NGO accounts.
       </p>
-    {% else %}
-      <div style="background: #f8fafc; border: 1px dashed var(--color-border); border-radius: 12px; padding: 2rem; text-align: center; color: var(--color-medium);">
-        <p style="margin-bottom: 0.5rem;">📍 Location: <strong>{{ d['pickup_address'] }}</strong></p>
-        <p style="font-size: 0.85rem; margin-bottom: 1rem;">Map coordinates were not pinned by the donor for this post.</p>
-        <a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" class="btn btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.9rem;">
-          Search Address on Google Maps ↗
+      {% if not current_user %}
+        <a href="{{ url_for('login', next=request.path) }}" class="btn btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.95rem;">
+          Log in as an NGO to open map
         </a>
-      </div>
-    {% endif %}
-  </div>
+        <p style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--color-medium);">
+          New organisation? <a href="{{ url_for('register') }}" style="color: var(--color-coral); font-weight: 600;">Register as an NGO</a>
+        </p>
+      {% else %}
+        <span class="tag" style="background: #e2e8f0; color: #475569; font-size: 0.82rem; padding: 0.4rem 0.9rem;">
+          Logged in as Donor (Map section & Google Maps navigation restricted to verified NGOs)
+        </span>
+      {% endif %}
+    </div>
+  {% endif %}
 
+  <!-- Claiming Section -->
   {% if d['status'] == 'available' %}
     <div class="claim-box">
       {% if current_user and current_user['role'] == 'ngo' %}
@@ -79,7 +113,8 @@
   {% endif %}
 </section>
 
-{% if d['latitude'] and d['longitude'] %}
+<!-- Leaflet map script only executed for authorized NGOs -->
+{% if current_user and current_user['role'] == 'ngo' and d['latitude'] and d['longitude'] %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {

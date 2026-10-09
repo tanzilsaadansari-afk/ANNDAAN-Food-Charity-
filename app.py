@@ -850,6 +850,9 @@ def about():
 
 @app.route('/api/donations')
 def api_donations():
+    user = get_current_user()
+    if not (user and user['role'] == 'ngo'):
+        return jsonify([])
     rows = get_db().execute(
         """
         SELECT id, food_item, food_type, quantity, pickup_address, latitude, longitude, status
