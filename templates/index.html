@@ -81,6 +81,23 @@
         .bindTooltip('You', { permanent: false, direction: 'top' })
         .addTo(map);
 
+      // Fetch live available donations from API and add to map
+      fetch('/api/donations')
+        .then(function (res) { return res.json(); })
+        .then(function (liveItems) {
+          liveItems.forEach(function (item) {
+            if (item.latitude && item.longitude) {
+              const marker = L.marker([item.latitude, item.longitude])
+                .bindPopup('<div class="activity-popup"><strong>🍲 ' + (item.food_item || 'Food Donation') + '</strong><span>' + (item.quantity || '') + '<br><a href="/donation/' + item.id + '" style="color:#168154;font-weight:600;">View & Claim →</a></span></div>')
+                .addTo(map);
+              marker.activityType = 'food';
+              markers.push(marker);
+            }
+          });
+        })
+        .catch(function () {});
+
+
       setTimeout(function () { map.invalidateSize(); }, 150);
 
       document.querySelectorAll('.map-filter').forEach(function (button) {

@@ -5,11 +5,20 @@
   <div class="browse-head">
     <h1>Available right now</h1>
     <div class="filters">
-      <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse') }}">All</a>
-      <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg') }}">Veg</a>
-      <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg') }}">Non-veg</a>
+      <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse', q=q) }}">All</a>
+      <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg', q=q) }}">Veg</a>
+      <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg', q=q) }}">Non-veg</a>
     </div>
   </div>
+
+  <form method="get" action="{{ url_for('browse') }}" style="margin: 0.5rem 0 1rem; display: flex; gap: 0.5rem;">
+    {% if food_type %}<input type="hidden" name="food_type" value="{{ food_type }}">{% endif %}
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by food item or pickup address..." style="flex: 1; padding: 0.65rem 1rem; border: 1px solid #e0e0d8; border-radius: 8px; font-size: 0.95rem; font-family: inherit;">
+    <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.25rem;">Search</button>
+    {% if q %}
+      <a href="{{ url_for('browse', food_type=food_type) }}" class="btn btn-ghost" style="padding: 0.65rem 1rem;">Clear</a>
+    {% endif %}
+  </form>
 
   {% if donations %}
   <div class="card-grid">
@@ -25,10 +34,15 @@
   </div>
   {% else %}
   <div class="empty">
-    <p>Nothing posted right now. Check back soon
-      {% if current_user and current_user['role'] == 'donor' %}
-        , or be the first to <a href="{{ url_for('donate') }}">post a donation</a>.
-      {% else %}.{% endif %}
+    <p>
+      {% if q %}
+        No donations matching "{{ q }}". Try another search or <a href="{{ url_for('browse') }}">view all</a>.
+      {% else %}
+        Nothing posted right now. Check back soon
+        {% if current_user and current_user['role'] == 'donor' %}
+          , or be the first to <a href="{{ url_for('donate') }}">post a donation</a>.
+        {% else %}.{% endif %}
+      {% endif %}
     </p>
   </div>
   {% endif %}

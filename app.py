@@ -121,6 +121,7 @@ translations = {
         'flash_login_to_claim': 'Log in as an NGO to claim this donation, or sign up if you don\'t have an account yet.',
         'flash_claimer_contact': 'Claimed by {name} · Contact: {phone} · claimed at {time}',
         'flash_completed_note': 'This donation was picked up. Thank you for closing the loop.',
+        'flash_only_donor_or_ngo': 'Only the donor or the claiming NGO can mark this as picked up.',
         'map_copy_text': 'Good food is close by',
         'map_copy_subtext': 'Discover donations and pickup points around you.',
         'map_explore_button': 'Explore nearby',
@@ -224,6 +225,7 @@ translations = {
         'flash_login_to_claim': 'इस दान का दावा करने के लिए एनजीओ के रूप में लॉग इन करें, या यदि आपके पास खाता नहीं है तो साइन अप करें।',
         'flash_claimer_contact': '{name} द्वारा दावा किया गया · संपर्क: {phone} · {time} पर दावा किया गया',
         'flash_completed_note': 'यह दान उठा लिया गया है। लूप पूरा करने के लिए धन्यवाद।',
+        'flash_only_donor_or_ngo': 'केवल दाता या दावा करने वाला एनजीओ ही इसे ले लिया गया चिह्नित कर सकता है।',
         'map_copy_text': 'अच्छा भोजन पास में है',
         'map_copy_subtext': 'पास के दान और उठाने के बिंदुओं की खोज करें।',
         'map_explore_button': 'पास की खोज करें',
@@ -388,6 +390,10 @@ def _init_sqlite():
         )
         """
     )
+    db.execute("CREATE INDEX IF NOT EXISTS idx_donations_status ON donations (status)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_donations_expiry ON donations (expiry_time)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_donations_donor ON donations (donor_id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)")
     db.commit()
 
     if needs_seed:
@@ -650,6 +656,21 @@ def donate():
             flash(t('flash_quantity_required'), "error")
             return render_template("donate.html", form=form)
 
+        lat_val = None
+        lng_val = None
+        if form.get("latitude"):
+            try:
+                lat_val = float(form["latitude"].strip())
+            except (ValueError, TypeError):
+                lat_val = None
+        if form.get("longitude"):
+            try:
+                lng_val = float(form["longitude"].strip())
+            except (ValueError, TypeError):
+                lng_val = None
+
+        expiry_val = form["expiry_time"].strip()
+
         db = get_db()
         db.execute(
             """
@@ -665,12 +686,12 @@ def donate():
                 form["food_type"],
                 form["quantity"].strip(),
                 form["pickup_address"].strip(),
-                form["expiry_time"].strip(),
+                expiry_val,
                 form.get("notes", "").strip(),
                 datetime.now().isoformat(timespec="minutes"),
-                datetime.now().isoformat(timespec="minutes"),
-                None,  # latitude will be set via JS
-                None   # longitude will be set via JS
+                expiry_val,
+                lat_val,
+                lng_val
             ),
         )
         db.commit()
@@ -685,6 +706,7 @@ def donate():
 def browse():
     db = get_db()
     food_type = request.args.get("food_type", "")
+    q = request.args.get("q", "").strip()
     query = """
         SELECT donations.*, users.name AS donor_name
         FROM donations JOIN users ON users.id = donations.donor_id
@@ -694,9 +716,14 @@ def browse():
     if food_type in ("veg", "non-veg"):
         query += " AND food_type = ?"
         params.append(food_type)
+    if q:
+        query += " AND (food_item LIKE ? OR pickup_address LIKE ? OR users.name LIKE ?)"
+        search_pattern = f"%{q}%"
+        params.extend([search_pattern, search_pattern, search_pattern])
     query += " ORDER BY donations.created_at DESC"
     donations = db.execute(query, params).fetchall()
-    return render_template("browse.html", donations=donations, food_type=food_type)
+    return render_template("browse.html", donations=donations, food_type=food_type, q=q)
+
 
 
 @app.route("/donation/<int:donation_id>")
@@ -809,7 +836,27 @@ def about():
 
 @app.route('/api/donations')
 def api_donations():
-    return jsonify([dict(id=r['id'], food_type=r['food_type'], latitude=r['latitude'], longitude=r['longitude'], status=r['status']) for r in get_db().execute("SELECT id,food_type,latitude,longitude,status FROM donations WHERE status='available' AND latitude IS NOT NULL AND longitude IS NOT NULL").fetchall()])
+    rows = get_db().execute(
+        """
+        SELECT id, food_item, food_type, quantity, pickup_address, latitude, longitude, status
+        FROM donations
+        WHERE status='available' AND latitude IS NOT NULL AND longitude IS NOT NULL
+        """
+    ).fetchall()
+    return jsonify([
+        dict(
+            id=r['id'],
+            food_item=r['food_item'],
+            food_type=r['food_type'],
+            quantity=r['quantity'],
+            pickup_address=r['pickup_address'],
+            latitude=r['latitude'],
+            longitude=r['longitude'],
+            status=r['status']
+        )
+        for r in rows
+    ])
+
 
 
 @app.route("/health")

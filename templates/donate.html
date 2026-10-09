@@ -1,16 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Donate food — Anndaan{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <section class="form-page">
   <h1>Post a food donation</h1>
   <p class="form-sub">Posting as <strong>{{ current_user['name'] }}</strong> ({{ current_user['phone'] }}). Give NGOs enough detail to decide fast — what it is, how much, and how long it'll stay good.</p>
-  <div class="map-container">
-    <div id="map" style="height:300px;margin-bottom:10px;"></div>
-    <input type="hidden" name="latitude" id="latitude" value="">
-    <input type="hidden" name="longitude" id="longitude" value="">
-  </div>
 
   <form method="post" class="form">
+    <div class="map-container" style="margin-bottom: 1rem;">
+      <label style="margin-bottom: 6px; display: block; font-weight: 600;">
+        Pin pickup location on map <span style="font-weight: normal; color: #64748b; font-size: 0.85em;">(optional — click map to set pin)</span>
+      </label>
+      <div id="map" style="height: 260px; border-radius: 8px; border: 1px solid #e0e0d8; overflow: hidden;"></div>
+      <input type="hidden" name="latitude" id="latitude" value="{{ form.get('latitude', '') }}">
+      <input type="hidden" name="longitude" id="longitude" value="{{ form.get('longitude', '') }}">
+    </div>
+
     <label>
       Food item(s)
       <input type="text" name="food_item" placeholder="e.g. Rice, dal, mixed vegetable curry" value="{{ form.get('food_item','') }}" required>
@@ -50,21 +55,42 @@
     <button type="submit" class="btn btn-primary">Post donation</button>
   </form>
 </section>
-{% endblock %}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const map = L.map('map').setView([20, 75], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    const latInput = document.getElementById('latitude');
+    const lngInput = document.getElementById('longitude');
     
+    // Default Nagpur center or initial values
+    const initLat = parseFloat(latInput.value) || 21.1458;
+    const initLng = parseFloat(lngInput.value) || 79.0882;
+    const initZoom = latInput.value ? 14 : 11;
+
+    const map = L.map('map').setView([initLat, initLng], initZoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let marker = null;
+    if (latInput.value && lngInput.value) {
+      marker = L.marker([initLat, initLng]).addTo(map);
+    }
+
     map.on('click', function(e) {
       const lat = e.latlng.lat.toFixed(6);
       const lng = e.latlng.lng.toFixed(6);
-      document.getElementById('latitude').value = lat;
-      document.getElementById('longitude').value = lng;
-      L.marker([lat, lng]).addTo(map);
+      latInput.value = lat;
+      lngInput.value = lng;
+      if (marker) {
+        marker.setLatLng(e.latlng);
+      } else {
+        marker = L.marker(e.latlng).addTo(map);
+      }
     });
+
+    setTimeout(function() { map.invalidateSize(); }, 200);
   });
 </script>
+{% endblock %}

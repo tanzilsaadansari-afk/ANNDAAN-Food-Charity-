@@ -9,7 +9,15 @@
   <dl class="detail-list">
     <dt>Quantity</dt><dd>{{ d['quantity'] }}</dd>
     <dt>Pickup by</dt><dd>{{ d['expiry_time'] }}</dd>
-    <dt>Pickup address</dt><dd>{{ d['pickup_address'] }}</dd>
+    <dt>Pickup address</dt>
+    <dd>
+      {{ d['pickup_address'] }}
+      {% if d['latitude'] and d['longitude'] %}
+        <br><a href="https://www.google.com/maps/search/?api=1&query={{ d['latitude'] }},{{ d['longitude'] }}" target="_blank" rel="noopener" style="font-size: 0.9em; color: #e86c5a; text-decoration: underline;">Open location in Maps ↗</a>
+      {% else %}
+        <br><a href="https://www.google.com/maps/search/?api=1&query={{ d['pickup_address']|urlencode }}" target="_blank" rel="noopener" style="font-size: 0.9em; color: #e86c5a; text-decoration: underline;">Open address in Maps ↗</a>
+      {% endif %}
+    </dd>
     <dt>Donor</dt><dd>{{ d['donor_name'] }} · {{ d['donor_phone'] }}</dd>
     {% if d['notes'] %}<dt>Notes</dt><dd>{{ d['notes'] }}</dd>{% endif %}
     <dt>Posted</dt><dd>{{ d['created_at'] }}</dd>
