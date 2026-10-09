@@ -590,16 +590,88 @@ def logout():
     flash(t('flash_logout'), "success")
     return redirect(url_for("home"))
 
+# ---------- expiry and waste prevention helpers ----------
+def parse_dt(dt_str):
+    if not dt_str:
+        return None
+    try:
+        dt_str = str(dt_str).strip().replace(" ", "T")
+        return datetime.fromisoformat(dt_str)
+    except Exception:
+        return None
+
+
+@app.template_filter("format_expiry")
+def format_expiry(dt_str):
+    """Format ISO date string into human-friendly expiry display (e.g., Today at 9:30 PM)"""
+    dt = parse_dt(dt_str)
+    if not dt:
+        return dt_str or "N/A"
+    now = datetime.now()
+    time_str = dt.strftime("%I:%M %p").lstrip("0")
+    if dt.date() == now.date():
+        return f"Today at {time_str}"
+    elif dt.date() == (now + timedelta(days=1)).date():
+        return f"Tomorrow at {time_str}"
+    else:
+        return dt.strftime(f"%d %b %Y, {time_str}")
+
+
+@app.template_filter("expiry_countdown")
+def expiry_countdown(dt_str):
+    """Return status, urgency, and human-friendly time remaining for food waste prevention"""
+    dt = parse_dt(dt_str)
+    if not dt:
+        return {"status": "unknown", "text": "N/A", "urgent": False, "badge_class": "expiry-badge-safe", "hours_left": 999}
+    now = datetime.now()
+    diff = dt - now
+    secs = int(diff.total_seconds())
+    if secs <= 0:
+        return {"status": "expired", "text": "Expired", "urgent": True, "badge_class": "expiry-badge-critical", "hours_left": 0}
+    mins = secs // 60
+    hours = mins // 60
+    days = hours // 24
+    if hours < 1:
+        return {"status": "critical", "text": f"Expires in {mins}m", "urgent": True, "badge_class": "expiry-badge-critical", "hours_left": mins / 60}
+    elif hours < 4:
+        rem_mins = mins % 60
+        text = f"Expires in {hours}h {rem_mins}m" if rem_mins else f"Expires in {hours}h"
+        return {"status": "urgent", "text": text, "urgent": True, "badge_class": "expiry-badge-urgent", "hours_left": hours}
+    elif hours < 24:
+        return {"status": "warning", "text": f"Expires in {hours}h", "urgent": False, "badge_class": "expiry-badge-soon", "hours_left": hours}
+    else:
+        return {"status": "safe", "text": f"Expires in {days}d", "urgent": False, "badge_class": "expiry-badge-safe", "hours_left": hours}
+
+
+# Context processor to make expiry helpers available globally in all templates
+@app.context_processor
+def inject_expiry_helpers():
+    return {
+        "format_expiry": format_expiry,
+        "expiry_countdown": expiry_countdown,
+    }
+
+
 # ---------- cleanup helper ----------
 def cleanup_expired_donations():
-    """Remove donations that have expired"""
+    """Ensure expired food is automatically marked as expired so no spoiled food is claimed"""
     db = get_db()
     current_time = datetime.now().isoformat(timespec="minutes")
     db.execute(
-        "UPDATE donations SET status='expired' WHERE expiry_time < ? AND status='available'",
-        (current_time,)
+        "UPDATE donations SET status='expired' WHERE (expiry_time < ? OR (expires_at IS NOT NULL AND expires_at < ?)) AND status='available'",
+        (current_time, current_time)
     )
     db.commit()
+
+
+@app.before_request
+def auto_cleanup_expired():
+    """Run expiry cleanup check automatically on web requests to prevent stale donations"""
+    if not request.path.startswith("/static"):
+        try:
+            cleanup_expired_donations()
+        except Exception:
+            pass
 
 # ---------- error handlers ----------
 @app.errorhandler(404)
@@ -647,28 +719,32 @@ def home():
 @app.route("/donate", methods=["GET", "POST"])
 @role_required("donor")
 def donate():
+    min_expiry = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    default_expiry = (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M")
+
     if request.method == "POST":
         form = request.form
         required = ["food_item", "food_type", "quantity", "pickup_address", "expiry_time"]
         missing = [f for f in required if not form.get(f, "").strip()]
         if missing:
             flash(t('flash_fill_form').format(fields=', '.join(missing)), "error")
-            return render_template("donate.html", form=form)
+            return render_template("donate.html", form=form, default_expiry=default_expiry, min_expiry=min_expiry)
 
         # Validate expiry time is in the future
-        try:
-            expiry_time = datetime.fromisoformat(form["expiry_time"].strip())
-            if expiry_time <= datetime.now():
-                flash(t('flash_expiry_future'), "error")
-                return render_template("donate.html", form=form)
-        except ValueError:
+        raw_expiry = form["expiry_time"].strip().replace(" ", "T")
+        expiry_dt = parse_dt(raw_expiry)
+        if not expiry_dt:
             flash(t('flash_invalid_expiry'), "error")
-            return render_template("donate.html", form=form)
+            return render_template("donate.html", form=form, default_expiry=default_expiry, min_expiry=min_expiry)
+
+        if expiry_dt <= datetime.now():
+            flash(t('flash_expiry_future'), "error")
+            return render_template("donate.html", form=form, default_expiry=default_expiry, min_expiry=min_expiry)
 
         # Validate quantity
         if not form["quantity"].strip():
             flash(t('flash_quantity_required'), "error")
-            return render_template("donate.html", form=form)
+            return render_template("donate.html", form=form, default_expiry=default_expiry, min_expiry=min_expiry)
 
         lat_val = None
         lng_val = None
@@ -683,7 +759,7 @@ def donate():
             except (ValueError, TypeError):
                 lng_val = None
 
-        expiry_val = form["expiry_time"].strip()
+        expiry_val = expiry_dt.strftime("%Y-%m-%dT%H:%M")
 
         db = get_db()
         db.execute(
@@ -712,8 +788,7 @@ def donate():
         flash(t('flash_donation_posted'), "success")
         return redirect(url_for("browse"))
 
-    default_expiry = (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M")
-    return render_template("donate.html", form={}, default_expiry=default_expiry)
+    return render_template("donate.html", form={}, default_expiry=default_expiry, min_expiry=min_expiry)
 
 
 @app.route("/browse")
@@ -721,6 +796,8 @@ def browse():
     db = get_db()
     food_type = request.args.get("food_type", "")
     q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "urgent")
+
     query = """
         SELECT donations.*, users.name AS donor_name
         FROM donations JOIN users ON users.id = donations.donor_id
@@ -734,9 +811,15 @@ def browse():
         query += " AND (food_item LIKE ? OR pickup_address LIKE ? OR users.name LIKE ?)"
         search_pattern = f"%{q}%"
         params.extend([search_pattern, search_pattern, search_pattern])
-    query += " ORDER BY donations.created_at DESC"
+
+    if sort == "newest":
+        query += " ORDER BY donations.created_at DESC"
+    else:
+        # Default: food expiring soonest comes first to prevent waste!
+        query += " ORDER BY donations.expiry_time ASC, donations.created_at DESC"
+
     donations = db.execute(query, params).fetchall()
-    return render_template("browse.html", donations=donations, food_type=food_type, q=q)
+    return render_template("browse.html", donations=donations, food_type=food_type, q=q, sort=sort)
 
 
 

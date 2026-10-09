@@ -1072,3 +1072,40 @@ main {
   margin-left: 6px;
   vertical-align: middle;
 }
+
+/* Food Expiry & Waste Prevention styling */
+.preset-expiry-btn:hover {
+  background: var(--color-light) !important;
+  border-color: var(--color-green) !important;
+  color: var(--color-green) !important;
+}
+
+.expiry-badge-urgent {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.expiry-badge-critical {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #f87171;
+  animation: pulse-urgent 2s infinite ease-in-out;
+}
+
+@keyframes pulse-urgent {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.expiry-badge-soon {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.expiry-badge-safe {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}

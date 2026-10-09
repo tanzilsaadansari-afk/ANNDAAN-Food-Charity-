@@ -7,9 +7,13 @@
     <h1>Available right now</h1>
     <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
       <div class="filters">
-        <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse', q=q) }}">All</a>
-        <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg', q=q) }}">Veg</a>
-        <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg', q=q) }}">Non-veg</a>
+        <a class="filter-chip {% if not food_type %}active{% endif %}" href="{{ url_for('browse', q=q, sort=sort) }}">All</a>
+        <a class="filter-chip {% if food_type=='veg' %}active{% endif %}" href="{{ url_for('browse', food_type='veg', q=q, sort=sort) }}">Veg</a>
+        <a class="filter-chip {% if food_type=='non-veg' %}active{% endif %}" href="{{ url_for('browse', food_type='non-veg', q=q, sort=sort) }}">Non-veg</a>
+      </div>
+      <div class="sort-controls" style="display: flex; gap: 0.35rem; align-items: center; background: #f1f5f9; padding: 0.2rem 0.35rem; border-radius: 8px;">
+        <a href="{{ url_for('browse', food_type=food_type, q=q, sort='urgent') }}" class="sort-chip" style="text-decoration: none; font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.65rem; border-radius: 6px; {% if sort != 'newest' %}color: #fff; background: #168154;{% else %}color: #64748b; background: transparent;{% endif %}">⚡ Expiring Soonest</a>
+        <a href="{{ url_for('browse', food_type=food_type, q=q, sort='newest') }}" class="sort-chip" style="text-decoration: none; font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.65rem; border-radius: 6px; {% if sort == 'newest' %}color: #fff; background: #168154;{% else %}color: #64748b; background: transparent;{% endif %}">🕒 Newest</a>
       </div>
       {% if current_user and current_user['role'] == 'ngo' %}
       <button type="button" id="toggle-map-btn" class="btn btn-ghost" style="padding: 0.5rem 1rem; font-size: 0.88rem;">
@@ -21,10 +25,11 @@
 
   <form method="get" action="{{ url_for('browse') }}" style="margin: 0.5rem 0 1rem; display: flex; gap: 0.5rem;">
     {% if food_type %}<input type="hidden" name="food_type" value="{{ food_type }}">{% endif %}
+    {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
     <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by food item or pickup address..." style="flex: 1; padding: 0.65rem 1rem; border: 1px solid #e0e0d8; border-radius: 8px; font-size: 0.95rem; font-family: inherit;">
     <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.25rem;">Search</button>
     {% if q %}
-      <a href="{{ url_for('browse', food_type=food_type) }}" class="btn btn-ghost" style="padding: 0.65rem 1rem;">Clear</a>
+      <a href="{{ url_for('browse', food_type=food_type, sort=sort) }}" class="btn btn-ghost" style="padding: 0.65rem 1rem;">Clear</a>
     {% endif %}
   </form>
 
@@ -42,10 +47,24 @@
   {% if donations %}
   <div class="card-grid">
     {% for d in donations %}
+    {% set exp = d['expiry_time']|expiry_countdown %}
     <a class="card" href="{{ url_for('donation_detail', donation_id=d['id']) }}">
-      <span class="tag tag-{{ d['food_type'] }}">{{ d['food_type'] }}</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap;">
+        <span class="tag tag-{{ d['food_type'] }}" style="margin-bottom: 0;">{{ d['food_type'] }}</span>
+        {% if exp.urgent %}
+          <span style="font-size: 0.74rem; font-weight: 700; background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 999px; padding: 0.2rem 0.6rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+            ⚠️ {{ exp.text }}
+          </span>
+        {% else %}
+          <span style="font-size: 0.74rem; font-weight: 600; background: #f1f5f9; color: #475569; border-radius: 999px; padding: 0.2rem 0.6rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+            ⏱️ {{ exp.text }}
+          </span>
+        {% endif %}
+      </div>
       <h3>{{ d['food_item'] }}</h3>
-      <p class="card-meta">{{ d['quantity'] }} &middot; pickup by {{ d['expiry_time'] }}</p>
+      <p class="card-meta">
+        <strong>{{ d['quantity'] }}</strong> &middot; expires {{ d['expiry_time']|format_expiry }}
+      </p>
       <p class="card-loc">{{ d['pickup_address'] }}</p>
       <p class="card-donor">from {{ d['donor_name'] }}</p>
     </a>

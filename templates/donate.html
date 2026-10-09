@@ -42,10 +42,32 @@
       <input type="text" name="pickup_address" placeholder="Full address or landmark" value="{{ form.get('pickup_address','') }}" required>
     </label>
 
-    <label>
-      Pick up by
-      <input type="datetime-local" name="expiry_time" value="{{ form.get('expiry_time', default_expiry) }}" required>
-    </label>
+    <div class="expiry-input-card" style="margin: 1.25rem 0; padding: 1.15rem; background: #fffdfa; border: 1.5px solid #fde68a; border-radius: var(--radius-lg); box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+        <label for="expiry_time_input" style="font-weight: 700; font-size: 0.95rem; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
+          ⏰ Food Expiry Date & Pickup Deadline <span style="color: #e11d48;">*</span>
+        </label>
+        <span class="expiry-waste-tag" style="font-size: 0.75rem; font-weight: 700; background: #fef3c7; color: #92400e; padding: 0.25rem 0.6rem; border-radius: 999px; border: 1px solid #fde68a;">
+          🛡️ Prevent Food Waste
+        </span>
+      </div>
+      <p style="font-size: 0.82rem; color: #64748b; margin: 0 0 0.85rem; line-height: 1.45;">
+        Specify the exact date and time when this food must be collected or consumed. NGOs prioritize items closest to expiry so no good food goes to waste.
+      </p>
+
+      <div style="margin-bottom: 0.75rem;">
+        <span style="font-size: 0.78rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.4rem;">Quick Freshness Presets:</span>
+        <div style="display: flex; gap: 0.45rem; flex-wrap: wrap;">
+          <button type="button" class="preset-expiry-btn" data-hours="3" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; transition: all 0.2s;">🍲 Cooked Meal (+3 hrs)</button>
+          <button type="button" class="preset-expiry-btn" data-hours="6" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; transition: all 0.2s;">🌙 Tonight (+6 hrs)</button>
+          <button type="button" class="preset-expiry-btn" data-hours="18" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; transition: all 0.2s;">☀️ Tomorrow Noon (+18 hrs)</button>
+          <button type="button" class="preset-expiry-btn" data-hours="48" style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; transition: all 0.2s;">📦 Packaged / Dry (+2 days)</button>
+        </div>
+      </div>
+
+      <input type="datetime-local" id="expiry_time_input" name="expiry_time" min="{{ min_expiry }}" value="{{ form.get('expiry_time', default_expiry) }}" required style="width: 100%; padding: 0.65rem 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; font-family: inherit;">
+      <div id="expiry_feedback" style="margin-top: 0.5rem; font-size: 0.82rem; font-weight: 600; color: #059669; display: flex; align-items: center; gap: 0.3rem;"></div>
+    </div>
 
     <label>
       Notes (optional)
@@ -91,6 +113,62 @@
     });
 
     setTimeout(function() { map.invalidateSize(); }, 200);
+
+    // Food Expiry helper logic
+    const expiryInput = document.getElementById('expiry_time_input');
+    const expiryFeedback = document.getElementById('expiry_feedback');
+    const presetBtns = document.querySelectorAll('.preset-expiry-btn');
+
+    function updateExpiryFeedback() {
+      if (!expiryInput || !expiryFeedback) return;
+      const val = expiryInput.value;
+      if (!val) {
+        expiryFeedback.textContent = '';
+        return;
+      }
+      const target = new Date(val);
+      const now = new Date();
+      const diffMs = target - now;
+      if (diffMs <= 0) {
+        expiryFeedback.innerHTML = '<span style="color:#dc2626;">⚠️ Expiry time must be in the future to prevent food waste!</span>';
+        return;
+      }
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const timeFormatted = target.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateFormatted = target.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      
+      let durationText = '';
+      if (diffHours >= 24) {
+        const days = Math.floor(diffHours / 24);
+        durationText = `${days} day(s) from now`;
+      } else if (diffHours > 0) {
+        durationText = `${diffHours}h ${diffMins}m from now`;
+      } else {
+        durationText = `${diffMins} minutes from now`;
+      }
+      expiryFeedback.innerHTML = `<span style="color:#059669;">✓ Good for ~${durationText} (${dateFormatted} at ${timeFormatted})</span>`;
+    }
+
+    presetBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const hours = parseFloat(btn.dataset.hours);
+        const target = new Date(Date.now() + hours * 3600 * 1000);
+        const yyyy = target.getFullYear();
+        const mm = String(target.getMonth() + 1).padStart(2, '0');
+        const dd = String(target.getDate()).padStart(2, '0');
+        const hh = String(target.getHours()).padStart(2, '0');
+        const min = String(target.getMinutes()).padStart(2, '0');
+        expiryInput.value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        updateExpiryFeedback();
+      });
+    });
+
+    if (expiryInput) {
+      expiryInput.addEventListener('change', updateExpiryFeedback);
+      expiryInput.addEventListener('input', updateExpiryFeedback);
+      updateExpiryFeedback();
+    }
   });
 </script>
 {% endblock %}

@@ -10,9 +10,34 @@
   <h1>{{ d['food_item'] }}</h1>
   <span class="status-pill status-{{ d['status'] }}">{{ d['status'] }}</span>
 
+  {% set exp = d['expiry_time']|expiry_countdown %}
+  <div class="expiry-status-box" style="margin: 1.25rem 0; padding: 1.15rem 1.35rem; border-radius: var(--radius-lg); border: 1.5px solid {% if exp.urgent %}#fca5a5; background: #fff5f5;{% else %}#e2e8f0; background: #f8fafc;{% endif %}; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem;">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span style="font-size: 1.4rem;">{% if exp.urgent %}⏳{% else %}⏱️{% endif %}</span>
+        <div>
+          <div style="font-weight: 700; font-size: 1.02rem; color: {% if exp.urgent %}#991b1b{% else %}#1e293b{% endif %};">
+            Expiry Deadline: {{ d['expiry_time']|format_expiry }}
+          </div>
+          <div style="font-size: 0.82rem; color: #64748b; margin-top: 2px;">
+            Food must be collected and served before this time to avoid waste
+          </div>
+        </div>
+      </div>
+      <span style="font-size: 0.85rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: 999px; {% if exp.urgent %}background: #fee2e2; color: #b91c1c; border: 1px solid #f87171;{% else %}background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;{% endif %}">
+        {{ exp.text }}
+      </span>
+    </div>
+    {% if exp.urgent and d['status'] == 'available' %}
+      <div style="margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px solid #fecaca; font-size: 0.88rem; color: #991b1b; line-height: 1.45;">
+        ⚠️ <strong>Priority Pickup Required:</strong> This food is close to expiring. Claiming immediately ensures fresh meals reach families in need without going to waste!
+      </div>
+    {% endif %}
+  </div>
+
   <dl class="detail-list">
     <dt>Quantity</dt><dd>{{ d['quantity'] }}</dd>
-    <dt>Pickup by</dt><dd>{{ d['expiry_time'] }}</dd>
+    <dt>Expiry date & time</dt><dd><strong>{{ d['expiry_time']|format_expiry }}</strong> ({{ exp.text }})</dd>
     <dt>Pickup address</dt><dd>{{ d['pickup_address'] }}</dd>
     <dt>Donor</dt>
     <dd>
