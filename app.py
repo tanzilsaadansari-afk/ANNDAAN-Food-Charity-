@@ -13,6 +13,9 @@ load_dotenv()
 
 DB_PATH = Path(__file__).parent / "anndaan.db"
 DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.strip() or None
+
 
 # Attempt importing psycopg2 for PostgreSQL support
 try:
