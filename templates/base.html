@@ -15,9 +15,9 @@
       <span class="brand-tagline">{{ t('footer_text') }}</span>
     </a>
     <nav class="desktop-nav">
-      <a href="{{ url_for('home') }}">{{ t('nav_home') }}</a>
-      <a href="{{ url_for('browse') }}">{{ t('nav_browse') }}</a>
-      <a href="{{ url_for('about') }}">{{ t('nav_about') }}</a>
+      <a class="{% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">{{ t('nav_home') }}</a>
+      <a class="{% if request.endpoint in ['browse', 'donation_detail'] %}active{% endif %}" href="{{ url_for('browse') }}">{{ t('nav_browse') }}</a>
+      <a class="{% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">{{ t('nav_about') }}</a>
       {% if current_user %}
         {% if current_user['role'] == 'donor' %}<a href="{{ url_for('donate') }}" class="nav-cta">{{ t('nav_donate') }}</a>{% endif %}
         <span class="nav-user">{{ current_user['name'] }}</span>
@@ -55,11 +55,11 @@
   </main>
 
   <nav class="bottom-nav" aria-label="Main navigation">
-    <a class="bottom-link active" href="{{ url_for('home') }}"><span class="nav-icon">⌂</span><span>{{ t('bottom_nav_home') }}</span></a>
-    <a class="bottom-link" href="{{ url_for('donate') if current_user and current_user['role'] == 'donor' else url_for('register') }}"><span class="nav-icon">√</span><span>{{ t('bottom_nav_donate') }}</span></a>
-    <a class="bottom-link" href="{{ url_for('browse') }}"><span class="nav-icon">⌖</span><span>{{ t('bottom_nav_browse') }}</span></a>
-    <a class="bottom-link" href="{{ url_for('browse') }}"><span class="nav-icon">♥</span><span>{{ t('bottom_nav_requests') }}</span></a>
-    <a class="bottom-link" href="{{ url_for('login') if not current_user else url_for('logout') }}"><span class="nav-icon">○</span><span>{{ 'Profile' if current_user else 'Sign in' }}</span></a>
+    <a class="bottom-link {% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}"><span class="nav-icon">⌂</span><span>{{ t('bottom_nav_home') }}</span></a>
+    <a class="bottom-link {% if request.endpoint == 'donate' %}active{% endif %}" href="{{ url_for('donate') if current_user and current_user['role'] == 'donor' else url_for('register') }}"><span class="nav-icon">√</span><span>{{ t('bottom_nav_donate') }}</span></a>
+    <a class="bottom-link {% if request.endpoint == 'browse' %}active{% endif %}" href="{{ url_for('browse') }}"><span class="nav-icon">⌖</span><span>{{ t('bottom_nav_browse') }}</span></a>
+    <a class="bottom-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}"><span class="nav-icon">ℹ</span><span>{{ t('nav_about') }}</span></a>
+    <a class="bottom-link {% if request.endpoint in ['login', 'register'] %}active{% endif %}" href="{{ url_for('login') if not current_user else url_for('logout') }}"><span class="nav-icon">○</span><span>{{ 'Profile' if current_user else 'Sign in' }}</span></a>
   </nav>
 
   <footer class="footer">

@@ -97,6 +97,11 @@ body {
   background: var(--color-light);
 }
 
+.desktop-nav a.active {
+  color: var(--color-coral);
+  font-weight: 600;
+}
+
 .nav-cta {
   background: var(--color-coral) !important;
   color: var(--color-white) !important;
@@ -660,9 +665,15 @@ main {
   transition: color 0.2s;
 }
 
-.bottom-link.active,
-.bottom-link:hover {
+.bottom-link.active {
   color: var(--color-coral);
+  font-weight: 600;
+}
+
+@media (hover: hover) {
+  .bottom-link:hover {
+    color: var(--color-coral);
+  }
 }
 
 .nav-icon {

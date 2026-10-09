@@ -462,7 +462,21 @@ def before_request():
     if 'language' not in session:
         session['language'] = 'en'
 
+def get_dynamic_dashboard_date():
+    now = datetime.now()
+    lang = session.get('language', 'en')
+    if lang == 'hi':
+        days = ["सोमवार", "मंगलवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार", "रविवार"]
+        months = ["जनवरी", "फ़रवरी", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर", "अक्टूबर", "नवंबर", "दिसंबर"]
+        day_str = days[now.weekday()]
+        month_str = months[now.month - 1]
+        return f"{day_str}, {now.day} {month_str} {now.year}"
+    else:
+        return f"{now.strftime('%A')}, {now.day} {now.strftime('%B %Y')}"
+
 def t(key):
+    if key == 'eyebrow_dashboard':
+        return get_dynamic_dashboard_date()
     lang = session.get('language', 'en')
     return translations.get(lang, translations['en']).get(key, key)
 
